@@ -1,0 +1,21 @@
+// src/tokens.cppm
+export module algol126.tokens;
+import std;
+
+export enum class TokenType {
+    BEGIN, END, IF, ELIF, ELSE, FI, FOR, FROM, TO, DO, OD, SCALE, ELACS,
+    INT8, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64, 
+    REAL32, REAL64, VEC4, REF, VOID, STRUCT, PROC, TEMPLATE, TYPE,
+    IMPORT, EXPORT, PRINT, INPUT,
+    L_PAREN, R_PAREN, L_BRACE, R_BRACE, L_BRACKET, R_BRACKET, DOT,
+    WALRUS, QUESTION, SEMICOLON, HASH,
+    PLUS, MINUS, MULTIPLY, DIVIDE, MODULO,
+    EQUAL, NOT_EQUAL, LESS, GREATER, LESS_EQUAL, GREATER_EQUAL,
+    IDENTIFIER, INT_LITERAL, REAL_LITERAL, STRING_LITERAL, END_OF_FILE
+};
+
+export struct Token {
+    TokenType type;
+    std::string value;
+    int line;
+};

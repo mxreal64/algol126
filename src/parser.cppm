@@ -1,0 +1,138 @@
+// src/parser.cppm
+export module algol126.parser;
+import algol126.tokens;
+import algol126.lexer;
+import algol126.ast;
+import std;
+export class Parser {
+private:
+    std::vector<Token> tokens; std::size_t cursor = 0;
+    std::unordered_map<std::string, std::shared_ptr<TemplateStructNode>> template_registry;
+    Token peek() const { return cursor < tokens.size() ? tokens[cursor] : Token{TokenType::END_OF_FILE, "EOF", 0}; }
+    bool match(TokenType t) { if (peek().type == t) { cursor++; return true; } return false; }
+    Token consume(TokenType t, std::string_view m) { if (peek().type != t) throw std::runtime_error(std::format("Parser Error [Line {}]: {}", peek().line, m)); return tokens[cursor++]; }
+public:
+    Parser(const std::vector<Token>& t) : tokens(t) {}
+    std::shared_ptr<ASTNode> parse_program() {
+        consume(TokenType::BEGIN, "Missing file 'begin' wrapper."); auto r = std::make_shared<BlockNode>();
+        while (peek().type != TokenType::END && peek().type != TokenType::END_OF_FILE) r->statements.push_back(parse_statement());
+        consume(TokenType::END, "Missing file 'end' wrapper."); match(TokenType::SEMICOLON); return r;
+    }
+private:
+    std::shared_ptr<ASTNode> parse_statement() {
+        if (match(TokenType::IMPORT)) {
+            Token p_tok = consume(TokenType::STRING_LITERAL, "Expected path."); consume(TokenType::SEMICOLON, "Missing ';'.");
+            std::filesystem::path m_path(p_tok.value); if (!std::filesystem::exists(m_path)) m_path = p_tok.value + ".a26";
+            if (std::filesystem::exists(m_path)) {
+                std::ifstream m_file(m_path); std::stringstream buf; buf << m_file.rdbuf(); Lexer m_lex; auto m_toks = m_lex.tokenize(buf.str());
+                if (!m_toks.empty() && m_toks.back().type == TokenType::END_OF_FILE) m_toks.pop_back();
+                tokens.insert(tokens.begin() + cursor, m_toks.begin(), m_toks.end());
+            } else throw std::runtime_error("Module Ingestion Fault: " + p_tok.value);
+            return std::make_shared<BlockNode>();
+        }
+        if (match(TokenType::TEMPLATE)) {
+            consume(TokenType::L_PAREN, "Expected '('."); consume(TokenType::TYPE, "Expected 'type'.");
+            std::string tp = consume(TokenType::IDENTIFIER, "Expected placeholder.").value; consume(TokenType::R_PAREN, "Expected ')'.");
+            consume(TokenType::STRUCT, "Expected 'struct'."); auto tn = std::make_shared<TemplateStructNode>();
+            tn->name = consume(TokenType::IDENTIFIER, "Expected name.").value; tn->placeholder_type_name = tp; consume(TokenType::L_BRACE, "Expected '{'.");
+            while (peek().type != TokenType::R_BRACE && peek().type != TokenType::END_OF_FILE) {
+                std::string ft = consume(peek().type, "Expected field type.").value; std::string fn = consume(TokenType::IDENTIFIER, "Expected field name.").value;
+                consume(TokenType::SEMICOLON, "Missing internal ';'."); tn->fields.emplace_back(ft, fn);
+            }
+            consume(TokenType::R_BRACE, "Missing '}'."); consume(TokenType::SEMICOLON, "Missing ';'.");
+            template_registry[tn->name] = tn; return tn;
+        }
+        if (peek().type == TokenType::STRUCT) {
+            cursor++; auto s = std::make_shared<StructNode>(); s->name = consume(TokenType::IDENTIFIER, "Expected struct name.").value; consume(TokenType::L_BRACE, "Expected '{'.");
+            while (peek().type != TokenType::R_BRACE && peek().type != TokenType::END_OF_FILE) {
+                s->fields.emplace_back(consume(peek().type, "Expected field type.").value, consume(TokenType::IDENTIFIER, "Expected field name.").value); consume(TokenType::SEMICOLON, "Missing field ';'.");
+            }
+            consume(TokenType::R_BRACE, "Missing closing '}'."); consume(TokenType::SEMICOLON, "Missing struct ';'."); return s;
+        }
+        if (match(TokenType::PROC)) {
+            auto f = std::make_shared<ProcNode>(); f->name = consume(TokenType::IDENTIFIER, "Expected function name.").value;
+            consume(TokenType::EQUAL, "Expected '='."); consume(TokenType::L_PAREN, "Expected '('.");
+            while (peek().type != TokenType::R_PAREN && peek().type != TokenType::END_OF_FILE) f->params.emplace_back(consume(peek().type, "Expected parameter type.").value, consume(TokenType::IDENTIFIER, "Expected parameter name.").value);
+            consume(TokenType::R_PAREN, "Expected ')'."); f->ret_type = consume(peek().type, "Expected return type.").value; consume(TokenType::L_BRACE, "Expected '{'.");
+            while (peek().type != TokenType::R_BRACE && peek().type != TokenType::END_OF_FILE) f->body.push_back(parse_statement());
+            consume(TokenType::R_BRACE, "Expected closing '}' boundary."); consume(TokenType::SEMICOLON, "Missing function ';'."); return f;
+        }
+        bool ie = match(TokenType::EXPORT), io = match(TokenType::QUESTION), ir = match(TokenType::REF); Token tt = peek();
+        if ((tt.type >= TokenType::INT8 && tt.type <= TokenType::VEC4) || tt.type == TokenType::IDENTIFIER) {
+            cursor++; // Consumes the type keyword or template name safely
+            std::string act_t = tt.value;
+            if (template_registry.contains(tt.value) && peek().type == TokenType::L_PAREN) {
+                cursor++; std::string spec_t = consume(peek().type, "Expected concrete specialization type.").value; consume(TokenType::R_PAREN, "Expected ')'.");
+                auto t_base = template_registry[tt.value]; auto concrete = std::make_shared<StructNode>(); 
+                Token id = consume(TokenType::IDENTIFIER, "Expected tracking identifier.");
+                concrete->name = id.value;
+                for (const auto& [f_t, f_n] : t_base->fields) concrete->fields.emplace_back(f_t == t_base->placeholder_type_name ? spec_t : f_t, f_n);
+                act_t = tt.value + "_" + spec_t;
+                
+                // FIXED: If the next token is a semicolon, treat it as a raw uninitialized declaration!
+                if (match(TokenType::SEMICOLON)) {
+                    auto n = std::make_shared<AssignmentNode>(id.value, std::make_shared<LiteralNode>("{}", TokenType::IDENTIFIER), ie);
+                    n->type_string = act_t; n->is_null_safe = !io; return n;
+                }
+                
+                consume(TokenType::WALRUS, "Expected assignment walrus (:=).");
+                auto v = parse_expression(); consume(TokenType::SEMICOLON, "Missing ';'.");
+                auto n = std::make_shared<AssignmentNode>(id.value, v, ie); n->type_string = act_t; n->is_null_safe = !io; return n;
+            }            
+            // Standard plain variable layout declarations fallback track
+            Token id = consume(TokenType::IDENTIFIER, "Expected tracking identifier."); 
+            consume(TokenType::WALRUS, "Expected assignment walrus (:=).");
+            if (match(TokenType::INPUT)) {
+                consume(TokenType::L_PAREN, "Expected (('"); consume(TokenType::L_PAREN, "Expected (('"); consume(TokenType::R_PAREN, "Expected ))"); consume(TokenType::R_PAREN, "Expected ))"); consume(TokenType::SEMICOLON, "Missing input ';'.");
+                auto inp = std::make_shared<InputNode>(); inp->var_name = id.value; auto n = std::make_shared<AssignmentNode>(id.value, inp, ie); n->type_string = (ir ? "void*" : act_t); return n;
+            }
+            auto v = parse_expression(); consume(TokenType::SEMICOLON, "Missing ';'.");
+            auto n = std::make_shared<AssignmentNode>(id.value, v, ie); n->type_string = (ir ? act_t + "*" : act_t); n->is_null_safe = !io; return n;
+        }
+
+        if (tt.type == TokenType::IDENTIFIER && cursor + 1 < tokens.size() && tokens[cursor + 1].type == TokenType::WALRUS) {
+            Token id = consume(TokenType::IDENTIFIER, "Expected variable name."); cursor++; auto v = parse_expression(); consume(TokenType::SEMICOLON, "Missing ';'.");
+            auto n = std::make_shared<AssignmentNode>(id.value, v, ie); n->type_string = ""; return n;
+        }
+        if (match(TokenType::SCALE)) {
+            auto s = std::make_shared<ScaleBlockNode>(); while (peek().type != TokenType::ELACS && peek().type != TokenType::END_OF_FILE) s->body.push_back(parse_statement());
+            consume(TokenType::ELACS, "Missing 'elacs'."); consume(TokenType::SEMICOLON, "Missing ';'."); return s;
+        }
+        if (match(TokenType::FOR)) {
+            auto l = std::make_shared<ForLoopNode>(); l->iterator = consume(TokenType::IDENTIFIER, "Expected iterator variable.").value; consume(TokenType::FROM, "Expected 'from'."); l->from_expr = parse_expression(); consume(TokenType::TO, "Expected 'to'."); l->to_expr = parse_expression();
+            consume(TokenType::DO, "Expected 'do'."); while (peek().type != TokenType::OD && peek().type != TokenType::END_OF_FILE) l->body.push_back(parse_statement());
+            consume(TokenType::OD, "Missing 'od'."); consume(TokenType::SEMICOLON, "Missing ';'."); return l;
+        }
+        if (match(TokenType::PRINT)) {
+            consume(TokenType::L_PAREN, "Expected (("); consume(TokenType::L_PAREN, "Expected (("); auto p = std::make_shared<PrintNode>(); p->expr = parse_expression(); consume(TokenType::R_PAREN, "Expected ))"); consume(TokenType::R_PAREN, "Expected ))"); consume(TokenType::SEMICOLON, "Missing ';'."); return p;
+        }
+        auto e = parse_expression(); match(TokenType::SEMICOLON); return e;
+    }
+    std::shared_ptr<ASTNode> parse_expression() {
+        std::shared_ptr<ASTNode> l; Token t = peek();
+        if (match(TokenType::IDENTIFIER) || match(TokenType::INT_LITERAL) || match(TokenType::REAL_LITERAL) || match(TokenType::STRING_LITERAL)) {
+            if (t.type == TokenType::IDENTIFIER && peek().type == TokenType::L_PAREN) {
+                std::string cb = t.value + "("; cursor++; bool fa = true;
+                while (peek().type != TokenType::R_PAREN && peek().type != TokenType::END_OF_FILE) {
+                    Token at = tokens[cursor++]; if (at.type == TokenType::IDENTIFIER || at.type == TokenType::INT_LITERAL || at.type == TokenType::REAL_LITERAL) { if (!fa) cb += ", "; cb += at.value; fa = false; }
+                }
+                consume(TokenType::R_PAREN, "Missing closing parenthesis."); cb += ")"; l = std::make_shared<LiteralNode>(cb, TokenType::IDENTIFIER);
+            } else l = std::make_shared<LiteralNode>(t.value, t.type);
+        } else if (match(TokenType::VEC4)) {
+            consume(TokenType::L_PAREN, "Missing arguments."); while (peek().type != TokenType::R_PAREN && peek().type != TokenType::END_OF_FILE) cursor++;
+            consume(TokenType::R_PAREN, "Missing bracket constraint."); l = std::make_shared<LiteralNode>("(vec4_t){0.0f,0.0f,0.0f,1.0f}", TokenType::VEC4);
+        } else if (match(TokenType::VOID)) { l = std::make_shared<LiteralNode>("0", TokenType::VOID); }
+        else throw std::runtime_error("Unexpected statement parser expression fault: " + t.value);
+        Token ot = peek();
+        if (ot.type >= TokenType::PLUS && ot.type <= TokenType::GREATER_EQUAL) {
+            cursor++;
+            auto r = parse_expression();
+            auto ll = std::dynamic_pointer_cast<LiteralNode>(l);
+            auto lr = std::dynamic_pointer_cast<LiteralNode>(r);
+            if (ll && lr) {
+                return std::make_shared<LiteralNode>(ll->value + " " + ot.value + " " + lr->value, ll->type);
+            }
+        }
+        return l;
+    }
+};
