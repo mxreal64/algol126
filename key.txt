@@ -1,0 +1,89 @@
+===============================================================================
+                       ALGOL126 REFERENCE SPECIFICATION
+                               FILE: key.txt
+===============================================================================
+
+-------------------------------------------------------------------------------
+1. STRUCTURAL BRACKETS & CONTROL FLOW
+-------------------------------------------------------------------------------
+begin     - Top-level module/file or block scope wrapper entry
+end       - Top-level module/file or block scope wrapper exit
+if        - Conditional block opener
+elif      - Alternative conditional path check (else-if)
+else      - Fallback conditional path
+fi        - Terminating bracket for conditional blocks
+for       - Loop block generator initialization
+from      - Lower index boundary indicator for loops
+to        - Upper index boundary indicator for loops
+do        - Execution block opener for loops
+od        - Terminating bracket for loops
+scale     - Entry point for unsafe, multithreaded AVX2 turbo sandbox
+elacs     - Exit point for unsafe, multithreaded AVX2 turbo sandbox
+
+-------------------------------------------------------------------------------
+2. PRIMITIVE DATA TYPES & TYPE ENGINES
+-------------------------------------------------------------------------------
+int8      - Signed 8-bit integer (byte width)
+uint8     - Unsigned 8-bit integer (byte width)
+int16     - Signed 16-bit integer (word width)
+uint16    - Unsigned 16-bit integer (word width)
+int32     - Signed 32-bit integer (dword width / standard integer)
+uint32    - Unsigned 32-bit integer (dword width)
+int64     - Signed 64-bit integer (qword width / pointer storage)
+uint64    - Unsigned 64-bit integer (qword width)
+real32    - 32-bit floating-point value
+real64    - 64-bit floating-point value
+vec4      - Native 128-bit hardware vector packed register (AVX2 optimized)
+ref       - Raw, naked, unmanaged memory reference (pointer arithmetic safe)
+void      - Empty/null value indicator or zero-return function state
+struct    - Declares a user-defined compound memory layout definition
+proc      - Declares a user-defined function block expression
+template  - Triggers compile-time template metaprogramming expansion pass
+type      - Generic placeholder identifier token for template structures
+
+-------------------------------------------------------------------------------
+3. MODULE MANAGEMENT & BUILT-INS
+-------------------------------------------------------------------------------
+import    - Early parsing text-copy module ingestion declaration
+export    - Exposes variable instances to outer modules up to next semicolon
+print     - Native terminal text and evaluation streaming gateway
+input     - Native terminal interactive buffer user polling polling gateway
+
+-------------------------------------------------------------------------------
+4. CODE SCOPING BRACKETS & MEMBERSHIP OPERATORS
+-------------------------------------------------------------------------------
+(         - Left Parenthesis: parameters, execution orders, native print/input
+)         - Right Parenthesis: parameters, execution orders, native print/input
+{         - Left Curly Brace: function execution scopes and struct property blocks
+}         - Right Curly Brace: function execution scopes and struct property blocks
+[         - Left Square Bracket: flat raw memory array buffers and index pointer offsets
+]         - Right Square Bracket: flat raw memory array buffers and index pointer offsets
+.         - Membership Dot Operator: struct data fields and vec4 swizzling fields
+
+-------------------------------------------------------------------------------
+5. MATHEMATICAL & ASSIGNMENT OPERATORS
+-------------------------------------------------------------------------------
+:=        - Walrus Operator: immutable declaration and mutable assignment statement
+?         - Optional Indicator: marks references for compile-time null safety checking
+;         - Statement Terminator: strict, explicit C++ style statement closure
+#         - Comment Block Toggle: skips all input tokens matching until the next #
++         - Addition Operator (implicitly vector-overloaded for vec4 registers)
+-         - Subtraction Operator (implicitly vector-overloaded for vec4 registers)
+*         - Multiplication Operator (implicitly vector-overloaded for vec4 registers)
+/         - Division Operator (implicitly vector-overloaded for vec4 registers)
+%         - Modulo Remainder Operator
+==        - Equality Relational Evaluator
+!=        - Non-Equality Relational Evaluator
+<         - Less-Than Relational Evaluator
+>         - Greater-Than Relational Evaluator
+<=        - Less-Than-Or-Equal-To Relational Evaluator
+>=        - Greater-Than-Or-Equal-To Relational Evaluator
+
+===============================================================================
+                     DEVELOPMENT RULES & MEMOS FOR LEXING
+===============================================================================
+* Whitespace is structurally neutral. Identifiers cannot contain spaces.
+* Case Sensitivity: All keywords are strictly lowercase.
+* All variable-ending assignment paths require a trailing semicolon.
+* Every user-defined structural type closure (};) requires a trailing semicolon.
+===============================================================================
