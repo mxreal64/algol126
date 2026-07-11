@@ -63,7 +63,7 @@ chmod +x build.sh
 
 ## notice & licensing
 ```text
-ALGOL 126 Compiler Core (A126C)
+ALGOL126 Compiler (A126C)
 Copyright (c) 2026 mxreal64 (https://github.com)
 
 This Source Code Form is subject to the terms of the Mozilla Public 
