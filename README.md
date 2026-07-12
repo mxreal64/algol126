@@ -1,10 +1,6 @@
 # algol126 (Experimental Branch)
 
 An unhinged, screaming-fast C++23 module compiler pipeline for **algol 126**—the direct chronological continuation of the historical ALGOL specification timeline. 
-
-> [!WARNING]
-> **EXPERIMENTAL BRANCH NOTICE**: This branch represents the bleeding-edge architecture shift. The compiler pipeline has transitioned from a high-level C23 transpiler into a **true, native, self-contained `x86_64` assembly generator toolchain**. It completely bypasses high-level string transpilation and emits pure Intel-syntax instructions directly to bare-metal hardware.
-
 No bloat, zero runtime safeties, and 100% spite-driven statement semicolons. Translates complex template shapes and vector registers straight into heavily optimized `.s` assembly payloads, leaving GCC purely free to act as a blazing-fast native hardware assembler and linker.
 
 ## Performance Loops
