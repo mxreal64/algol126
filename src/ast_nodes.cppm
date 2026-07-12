@@ -1,10 +1,3 @@
-// ALGOL 126 Compiler Core (A126C)
-// Copyright (c) 2026 mxreal64
-//
-// This Source Code Form is subject to the terms of the Mozilla Public 
-// License, v. 2.0. If a copy of the MPL was not distributed with this 
-// file, You can obtain one at http://mozilla.org.
-
 // src/ast_nodes.cppm
 export module algol126.ast;
 import algol126.tokens;
@@ -20,6 +13,21 @@ export struct LiteralNode : public ASTNode {
     TokenType type;
     LiteralNode(std::string val, TokenType t) : value(val), type(t) {}
     void print(int indent) const override { std::println("{:>{}}Literal/Ident: {}", "", indent, value); }
+};
+
+export struct BinaryOpNode : public ASTNode {
+    std::shared_ptr<ASTNode> left;
+    TokenType op;
+    std::shared_ptr<ASTNode> right;
+
+    BinaryOpNode(std::shared_ptr<ASTNode> l, TokenType o, std::shared_ptr<ASTNode> r) 
+        : left(l), op(o), right(r) {}
+
+    void print(int indent) const override {
+        std::println("{:>{}}BinaryOp:", "", indent);
+        if (left) left->print(indent + 2);
+        if (right) right->print(indent + 2);
+    }
 };
 
 export struct AssignmentNode : public ASTNode {
@@ -66,6 +74,65 @@ export struct ProcNode : public ASTNode {
     void print(int indent) const override {
         std::println("{:>{}}Proc Definition Statement: {}() -> {}", "", indent, name, ret_type);
         for (const auto& stmt : body) stmt->print(indent + 2);
+    }
+};
+
+export struct IfStatementNode : public ASTNode {
+    std::shared_ptr<ASTNode> condition;
+    std::vector<std::shared_ptr<ASTNode>> then_branch;
+    std::vector<std::pair<std::shared_ptr<ASTNode>, std::vector<std::shared_ptr<ASTNode>>>> elif_branches;
+    std::vector<std::shared_ptr<ASTNode>> else_branch;
+
+    IfStatementNode() : condition(nullptr) {}
+
+    void print(int indent) const override {
+        std::println("{:>{}}IfStatement:", "", indent);
+        if (condition) condition->print(indent + 2);
+    }
+};
+
+export struct IndexAccessNode : public ASTNode {
+    std::shared_ptr<ASTNode> base;
+    std::shared_ptr<ASTNode> index_expr;
+
+    IndexAccessNode(std::shared_ptr<ASTNode> b, std::shared_ptr<ASTNode> idx) 
+        : base(b), index_expr(idx) {}
+
+    void print(int indent) const override {
+        std::println("{:>{}}IndexAccess:", "", indent);
+        if (base) base->print(indent + 2);
+        if (index_expr) index_expr->print(indent + 2);
+    }
+};
+
+
+export struct PointerDerefNode : public ASTNode {
+    std::shared_ptr<ASTNode> expr;
+    PointerDerefNode(std::shared_ptr<ASTNode> e) : expr(e) {}
+};
+
+export struct MemberAccessNode : public ASTNode {
+    std::shared_ptr<ASTNode> base;
+    std::string field_name;
+
+    MemberAccessNode(std::shared_ptr<ASTNode> b, std::string f) 
+        : base(b), field_name(f) {}
+
+    void print(int indent) const override {
+        std::println("{:>{}}MemberAccess: .{}", "", indent, field_name);
+        if (base) base->print(indent + 2);
+    }
+};
+
+export struct NullCheckNode : public ASTNode {
+    std::shared_ptr<ASTNode> expr;
+
+    NullCheckNode(std::shared_ptr<ASTNode> e) 
+        : expr(e) {}
+
+    void print(int indent) const override {
+        std::println("{:>{}}NullCheck (?)", "", indent);
+        if (expr) expr->print(indent + 2);
     }
 };
 
