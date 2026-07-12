@@ -6,10 +6,10 @@
 // file, You can obtain one at http://mozilla.org.
 
 // src/main.cc
-import algol26.lexer;
-import algol26.parser;
-import algol26.codegen;
-import algol26.ast;
+import algol126.lexer;
+import algol126.parser;
+import algol126.codegen;
+import algol126.ast;
 import std;
 
 void print_banner() {
@@ -26,7 +26,6 @@ int main(int argc, char* argv[]) {
         std::println(std::cerr, "Usage: ./a26c <filename.a26 | filename.a68>");
         return 1;
     }
-
     std::filesystem::path source_path(argv[1]);
     
     if (source_path.extension() != ".a26" && source_path.extension() != ".a68") {
@@ -53,33 +52,36 @@ int main(int argc, char* argv[]) {
         std::println("[Driver] Running lexical token analysis...");
         Lexer lexer;
         auto tokens = lexer.tokenize(source_content);
-
+        for (const auto& tok : tokens) {
+    		std::println("Token: '{}' Type: {}", tok.value, (int)tok.type);
+		}
+		
         // Pipeline Stage 2: Structural Parse
         std::println("[Driver] Constructing Abstract Syntax Tree...");
         Parser parser(tokens);
         auto ast_root = parser.parse_program();
         
-        // Pipeline Stage 3: Unhinged C23 Codegen
-        std::println("[Driver] Generating unhinged C23 optimization target...");
+        // Pipeline Stage 3: Native x86_64 Assembly Codegen
+        std::println("[Driver] Generating x86_64 assembly optimization target...");
         CodeGenerator codegen;
-        std::string raw_c23 = codegen.generate_c23(ast_root);
+        std::string raw_assembly = codegen.generate_assembly(ast_root);
 
         // Pipeline Stage 4: Staging the Workspace
         std::filesystem::create_directory("./build");
-        std::filesystem::path target_c_file = "./build/target.c";
+        std::filesystem::path target_s_file = "./build/target.s";
         std::filesystem::path output_binary = "./build/" + source_path.stem().string();
 
-        std::ofstream out_file(target_c_file);
-        out_file << raw_c23;
+        std::ofstream out_file(target_s_file);
+        out_file << raw_assembly;
         out_file.close();
 
-        // Pipeline Stage 5: GCC Compilation Call
-        std::println("[Driver] Dispatching host GCC backend optimizer...");
-        std::string gcc_command = std::format("gcc -O3 -mavx2 {} -o {}", target_c_file.string(), output_binary.string());
+        // Pipeline Stage 5: GCC Assembler/Linker Call
+        std::println("[Driver] Dispatching host assembler backend optimizer...");
+        std::string gcc_command = std::format("gcc -mavx2 {} -o {}", target_s_file.string(), output_binary.string());
         
         int status = std::system(gcc_command.c_str());
         if (status != 0) {
-            std::println(std::cerr, "Error: Backend compilation error. GCC execution failed.");
+            std::println(std::cerr, "Error: Backend compilation error. GCC assembly execution failed.");
             return 1;
         }
 

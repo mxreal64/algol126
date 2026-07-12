@@ -1,10 +1,3 @@
-// ALGOL 126 Compiler Core (A126C)
-// Copyright (c) 2026 mxreal64
-//
-// This Source Code Form is subject to the terms of the Mozilla Public 
-// License, v. 2.0. If a copy of the MPL was not distributed with this 
-// file, You can obtain one at http://mozilla.org.
-
 // src/ast_nodes.cppm
 export module algol126.ast;
 import algol126.tokens;
