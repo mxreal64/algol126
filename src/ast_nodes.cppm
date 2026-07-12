@@ -22,6 +22,21 @@ export struct LiteralNode : public ASTNode {
     void print(int indent) const override { std::println("{:>{}}Literal/Ident: {}", "", indent, value); }
 };
 
+export struct BinaryOpNode : public ASTNode {
+    std::shared_ptr<ASTNode> left;
+    TokenType op;
+    std::shared_ptr<ASTNode> right;
+
+    BinaryOpNode(std::shared_ptr<ASTNode> l, TokenType o, std::shared_ptr<ASTNode> r) 
+        : left(l), op(o), right(r) {}
+
+    void print(int indent) const override {
+        std::println("{:>{}}BinaryOp:", "", indent);
+        if (left) left->print(indent + 2);
+        if (right) right->print(indent + 2);
+    }
+};
+
 export struct AssignmentNode : public ASTNode {
     std::string var_name;
     std::shared_ptr<ASTNode> value_expr;
@@ -66,6 +81,65 @@ export struct ProcNode : public ASTNode {
     void print(int indent) const override {
         std::println("{:>{}}Proc Definition Statement: {}() -> {}", "", indent, name, ret_type);
         for (const auto& stmt : body) stmt->print(indent + 2);
+    }
+};
+
+export struct IfStatementNode : public ASTNode {
+    std::shared_ptr<ASTNode> condition;
+    std::vector<std::shared_ptr<ASTNode>> then_branch;
+    std::vector<std::pair<std::shared_ptr<ASTNode>, std::vector<std::shared_ptr<ASTNode>>>> elif_branches;
+    std::vector<std::shared_ptr<ASTNode>> else_branch;
+
+    IfStatementNode() : condition(nullptr) {}
+
+    void print(int indent) const override {
+        std::println("{:>{}}IfStatement:", "", indent);
+        if (condition) condition->print(indent + 2);
+    }
+};
+
+export struct IndexAccessNode : public ASTNode {
+    std::shared_ptr<ASTNode> base;
+    std::shared_ptr<ASTNode> index_expr;
+
+    IndexAccessNode(std::shared_ptr<ASTNode> b, std::shared_ptr<ASTNode> idx) 
+        : base(b), index_expr(idx) {}
+
+    void print(int indent) const override {
+        std::println("{:>{}}IndexAccess:", "", indent);
+        if (base) base->print(indent + 2);
+        if (index_expr) index_expr->print(indent + 2);
+    }
+};
+
+
+export struct PointerDerefNode : public ASTNode {
+    std::shared_ptr<ASTNode> expr;
+    PointerDerefNode(std::shared_ptr<ASTNode> e) : expr(e) {}
+};
+
+export struct MemberAccessNode : public ASTNode {
+    std::shared_ptr<ASTNode> base;
+    std::string field_name;
+
+    MemberAccessNode(std::shared_ptr<ASTNode> b, std::string f) 
+        : base(b), field_name(f) {}
+
+    void print(int indent) const override {
+        std::println("{:>{}}MemberAccess: .{}", "", indent, field_name);
+        if (base) base->print(indent + 2);
+    }
+};
+
+export struct NullCheckNode : public ASTNode {
+    std::shared_ptr<ASTNode> expr;
+
+    NullCheckNode(std::shared_ptr<ASTNode> e) 
+        : expr(e) {}
+
+    void print(int indent) const override {
+        std::println("{:>{}}NullCheck (?)", "", indent);
+        if (expr) expr->print(indent + 2);
     }
 };
 
