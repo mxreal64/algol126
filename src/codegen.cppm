@@ -83,6 +83,7 @@ public:
         out << tabs() << "sub rsp, 512\n\n"; 
 
         if (auto b = std::dynamic_pointer_cast<BlockNode>(root)) {
+            // PASS 1: Build the structural blueprints and memory configurations first
             for (const auto& s : b->statements) {
                 if (auto st = std::dynamic_pointer_cast<StructNode>(s)) {
                     int running_offset = 0;
@@ -94,6 +95,13 @@ public:
                     }
                     struct_blueprint_table[st->name] = fields_map;
                     struct_total_size_table[st->name] = running_offset;
+                }
+            }
+
+            // PASS 2: Dispatch and compile all executable blocks and calculations
+            for (const auto& s : b->statements) {
+                if (!std::dynamic_pointer_cast<StructNode>(s) && !std::dynamic_pointer_cast<TemplateStructNode>(s)) {
+                    visit(s);
                 }
             }
         }

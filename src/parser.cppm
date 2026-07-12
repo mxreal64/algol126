@@ -35,8 +35,8 @@ private:
         if (match(TokenType::IMPORT)) {
             Token p_tok = consume(TokenType::STRING_LITERAL, "Expected path."); 
             consume(TokenType::SEMICOLON, "Missing ';'.");
-			std::filesystem::path m_path(p_tok.value); 
-			if (!std::filesystem::exists(m_path)) m_path = std::string(p_tok.value) + ".a26";
+            std::filesystem::path m_path(p_tok.value); 
+            if (!std::filesystem::exists(m_path)) m_path = std::string(p_tok.value) + ".a26";
             if (std::filesystem::exists(m_path)) {
                 std::ifstream m_file(m_path); 
                 std::stringstream buf; 
@@ -45,7 +45,7 @@ private:
                 auto m_toks = m_lex.tokenize(buf.str());
                 if (!m_toks.empty() && m_toks.back().type == TokenType::END_OF_FILE) m_toks.pop_back();
                 tokens.insert(tokens.begin() + cursor, m_toks.begin(), m_toks.end());
-           } else throw std::runtime_error("Module Ingestion Fault: " + std::string(p_tok.value));
+            } else throw std::runtime_error("Module Ingestion Fault: " + std::string(p_tok.value));
             return std::make_shared<BlockNode>();
         }
         if (match(TokenType::TEMPLATE)) {
@@ -86,7 +86,7 @@ private:
             consume(TokenType::R_BRACE, "Expected closing '}' boundary."); consume(TokenType::SEMICOLON, "Missing function ';'."); return f;
         }
         // 1. Check control loops FIRST
-		if (match(TokenType::FOR)) {
+        if (match(TokenType::FOR)) {
             auto l = std::make_shared<ForLoopNode>(); 
             l->iterator = std::string{consume(TokenType::IDENTIFIER, "Expected iterator variable.").value}; 
             consume(TokenType::FROM, "Expected 'from'."); l->from_expr = parse_expression(); 
@@ -104,21 +104,14 @@ private:
             return s;
         }
         if (match(TokenType::PRINT)) {
-            consume(TokenType::L_PAREN, "Expected (("); 
-            consume(TokenType::L_PAREN, "Expected (("); 
+            consume(TokenType::L_PAREN, "Expected (('"); 
+            consume(TokenType::L_PAREN, "Expected (('"); 
             auto p = std::make_shared<PrintNode>(); 
             p->expr = parse_expression(); 
             consume(TokenType::R_PAREN, "Expected ))"); 
             consume(TokenType::R_PAREN, "Expected ))"); 
             consume(TokenType::SEMICOLON, "Missing ';'."); 
             return p;
-        }
-        if (peek().type == TokenType::IDENTIFIER && cursor + 1 < tokens.size() && tokens[cursor + 1].type == TokenType::WALRUS) {
-            Token id = consume(TokenType::IDENTIFIER, "Expected variable name."); 
-            cursor++; auto v = parse_expression(); consume(TokenType::SEMICOLON, "Missing ';'.");
-            auto n = std::make_shared<AssignmentNode>(std::string{id.value}, v, false); 
-            n->type_string = ""; 
-            return n;
         }
         if (match(TokenType::IF)) {
             auto node = std::make_shared<IfStatementNode>();
@@ -151,120 +144,113 @@ private:
         }
 
         // ===================================================================
-        // FIXED: DROPPED BACKEND DECLARATION AND ASSIGNMENT RESOLUTION TRACK
+        // UNIFIED PROPERTY ASSIGNMENT, MUTATION, AND TYPE ALLOCATION ENGINE
         // ===================================================================
-        bool ie = match(TokenType::EXPORT), io = match(TokenType::QUESTION), ir = match(TokenType::REF); Token tt = peek();
-        if ((tt.type >= TokenType::INT8 && tt.type <= TokenType::VEC4) || tt.type == TokenType::IDENTIFIER) {
-            cursor++; 
-            std::string act_t{tt.value};
-            std::string raw_ident{tt.value};
-            
-            // Handle specialized structs / configurations
-            if (template_registry.contains(raw_ident) && peek().type == TokenType::L_PAREN) {
-                cursor++; std::string spec_t{consume(peek().type, "Expected concrete specialization type.").value}; consume(TokenType::R_PAREN, "Expected ')'.");
-                auto t_base = template_registry[raw_ident]; auto concrete = std::make_shared<StructNode>(); 
-                Token id = consume(TokenType::IDENTIFIER, "Expected tracking identifier.");
-                concrete->name = std::string{id.value};
-                for (const auto& [f_t, f_n] : t_base->fields) concrete->fields.emplace_back(f_t == t_base->placeholder_type_name ? spec_t : f_t, f_n);
-                act_t = raw_ident + "_" + spec_t;
-                
-                std::string var_name_str{id.value};
-                if (match(TokenType::SEMICOLON)) {
-                    auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, std::make_shared<LiteralNode>(std::string{"{}"}, TokenType::IDENTIFIER), ie);
-                    n->type_string = act_t; n->is_null_safe = !io; return n;
-                }
-                consume(TokenType::WALRUS, "Expected assignment walrus (:=).");
-                auto v = parse_expression(); consume(TokenType::SEMICOLON, "Missing ';'.");
-                auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, v, ie); n->type_string = act_t; n->is_null_safe = !io; return n;
-            }            
-            
-            Token id = consume(TokenType::IDENTIFIER, "Expected tracking identifier."); 
-            std::string var_name_str{id.value};
-            
-            // Support compound mutations containing member chains (e.g. "hero.health")
-            if (peek().type == TokenType::DOT) {
-            // Support compound mutations containing member chains (e.g. "hero.health")
-            while (peek().type == TokenType::DOT) {
-                cursor++;
-                Token field = consume(TokenType::IDENTIFIER, "Expected member property.");
-                var_name_str += "." + std::string(field.value);
-            }
+        bool ie = match(TokenType::EXPORT), io = match(TokenType::QUESTION), ir = match(TokenType::REF); 
+        Token tt = peek();
 
-            consume(TokenType::WALRUS, "Expected assignment walrus (:=).");
-            
-            if (match(TokenType::INPUT)) {
-                consume(TokenType::L_PAREN, "Expected (('"); 
-                consume(TokenType::L_PAREN, "Expected (('"); 
-                consume(TokenType::R_PAREN, "Expected ))"); 
-                consume(TokenType::R_PAREN, "Expected ))"); 
-                consume(TokenType::SEMICOLON, "Missing input ';'.");
+        if ((tt.type >= TokenType::INT8 && tt.type <= TokenType::VEC4) || tt.type == TokenType::IDENTIFIER) {
+            // 1. Process MUTATIONS or REASSIGNMENTS first to protect memory bounds (e.g., hero.health := 100; or step_counter := x;)
+            if (tt.type == TokenType::IDENTIFIER && cursor + 1 < tokens.size() && 
+               (tokens[cursor + 1].type == TokenType::WALRUS || tokens[cursor + 1].type == TokenType::DOT)) {
                 
-                auto inp = std::make_shared<InputNode>(); 
-                inp->var_name = var_name_str;
+                Token id = consume(TokenType::IDENTIFIER, "Expected tracking variable.");
+                std::string target_name_str{id.value};
+
+                // Accumulate compound property access chains iteratively
+                while (peek().type == TokenType::DOT) {
+                    cursor++;
+                    Token field = consume(TokenType::IDENTIFIER, "Expected member property field name.");
+                    target_name_str += "." + std::string(field.value);
+                }
+
+                consume(TokenType::WALRUS, "Expected assignment walrus (:=).");
+                auto v = parse_expression(); 
+                consume(TokenType::SEMICOLON, "Missing trailing ';'.");
                 
-                auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, inp, ie); 
-                n->type_string = (ir ? "void*" : act_t); 
+                auto n = std::make_shared<AssignmentNode>(target_name_str, v, false);
+                n->type_string = "";
                 return n;
             }
-            
-            auto v = parse_expression(); 
-            consume(TokenType::SEMICOLON, "Missing ';'.");
-            
-            auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, v, ie); 
-            n->type_string = (ir ? act_t + "*" : act_t); 
-            n->is_null_safe = !io; 
+
+            // 2. Process NEW TYPE DECLARATIONS (e.g., player_t hero := {}; or int32 a := 10;)
+            cursor++; // Safely consumes type keyword or structural blueprint identifier string
+            std::string act_t{tt.value};
+            std::string raw_ident{tt.value};
+
+            // Process specialized template layouts if applicable
+            if (template_registry.contains(raw_ident) && peek().type == TokenType::L_PAREN) {
+                cursor++; 
+                std::string spec_t{consume(peek().type, "Expected concrete specialization type.").value}; 
+                consume(TokenType::R_PAREN, "Expected ')'.");
+                
+                auto t_base = template_registry[raw_ident]; 
+                auto concrete = std::make_shared<StructNode>();
+                Token id = consume(TokenType::IDENTIFIER, "Expected tracking identifier.");
+                concrete->name = std::string{id.value};
+                
+                for (const auto& [f_t, f_n] : t_base->fields) {
+                    concrete->fields.emplace_back(f_t == t_base->placeholder_type_name ? spec_t : f_t, f_n);
+                }
+                act_t = raw_ident + "_" + spec_t;
+                std::string var_name_str{id.value};
+
+                if (match(TokenType::SEMICOLON)) {
+                    auto n = std::make_shared<AssignmentNode>(
+                        std::string{var_name_str}, 
+                        std::make_shared<LiteralNode>(std::string{"{}"}, TokenType::IDENTIFIER), 
+                        ie
+                    );
+                    n->type_string = act_t; 
+                    n->is_null_safe = !io; 
+                    return n;
+                }
+
+                consume(TokenType::WALRUS, "Expected assignment walrus (:=).");
+                auto v = parse_expression(); 
+                consume(TokenType::SEMICOLON, "Missing ';'.");
+
+                auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, v, ie); 
+                n->type_string = act_t; 
+                n->is_null_safe = !io; 
+                return n;
+            }
+
+            // Standard variable declaration processing path
+            Token id = consume(TokenType::IDENTIFIER, "Expected tracking identifier.");
+            std::string var_name_str{id.value};
+            consume(TokenType::WALRUS, "Expected assignment walrus (:=).");
+
+            if (match(TokenType::INPUT)) {
+                consume(TokenType::L_PAREN, "Expected (('"); 
+                consume(TokenType::L_PAREN, "Expected (('");
+                consume(TokenType::R_PAREN, "Expected ))"); 
+                consume(TokenType::R_PAREN, "Expected ))");
+                consume(TokenType::SEMICOLON, "Missing input tracking ';'.");
+
+                auto inp = std::make_shared<InputNode>();
+                inp->var_name = var_name_str;
+
+                auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, inp, ie);
+                n->type_string = (ir ? "void*" : act_t);
+                return n;
+            }
+
+            auto v = parse_expression();
+            consume(TokenType::SEMICOLON, "Missing trailing statement ';'.");
+
+            auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, v, ie);
+            n->type_string = (ir ? act_t + "*" : act_t);
+            n->is_null_safe = !io;
             return n;
         }
 
-        // Raw expression statement fallback safety track
-        auto e = parse_expression(); 
-        match(TokenType::SEMICOLON); 
+        // 3. Fallback: Parse standalone raw expression statements
+        auto e = parse_expression();
+        match(TokenType::SEMICOLON);
         return e;
     }
 
-		// 2. Check variable declarations SECOND
-        if ((tt.type >= TokenType::INT8 && tt.type <= TokenType::VEC4) || tt.type == TokenType::IDENTIFIER) {
-            cursor++; // Consumes the type keyword or template name safely
-            std::string act_t{tt.value};
-            std::string raw_ident{tt.value};
-            if (template_registry.contains(raw_ident) && peek().type == TokenType::L_PAREN) {
-                cursor++; std::string spec_t{consume(peek().type, "Expected concrete specialization type.").value}; consume(TokenType::R_PAREN, "Expected ')'.");
-                auto t_base = template_registry[raw_ident]; auto concrete = std::make_shared<StructNode>(); 
-                Token id = consume(TokenType::IDENTIFIER, "Expected tracking identifier.");
-                concrete->name = std::string{id.value};
-                for (const auto& [f_t, f_n] : t_base->fields) concrete->fields.emplace_back(f_t == t_base->placeholder_type_name ? spec_t : f_t, f_n);
-                act_t = raw_ident + "_" + spec_t;
-                
-                std::string var_name_str{id.value};
-                // FIXED: If the next token is a semicolon, treat it as a raw uninitialized declaration!
-                if (match(TokenType::SEMICOLON)) {
-                    auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, std::make_shared<LiteralNode>(std::string{"{}"}, TokenType::IDENTIFIER), ie);
-                    n->type_string = act_t; n->is_null_safe = !io; return n;
-                }
-                consume(TokenType::WALRUS, "Expected assignment walrus (:=).");
-                auto v = parse_expression(); consume(TokenType::SEMICOLON, "Missing ';'.");
-                auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, v, ie); n->type_string = act_t; n->is_null_safe = !io; return n;
-            }            
-            // Standard plain variable layout declarations fallback track
-            Token id = consume(TokenType::IDENTIFIER, "Expected tracking identifier."); 
-            std::string var_name_str{id.value};
-            consume(TokenType::WALRUS, "Expected assignment walrus (:=).");
-            if (match(TokenType::INPUT)) {
-                consume(TokenType::L_PAREN, "Expected (('"); 
-                consume(TokenType::L_PAREN, "Expected (('"); 
-                consume(TokenType::R_PAREN, "Expected ))"); 
-                consume(TokenType::R_PAREN, "Expected ))"); 
-                consume(TokenType::SEMICOLON, "Missing input ';'.");
-                auto inp = std::make_shared<InputNode>(); inp->var_name = var_name_str; 
-                auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, inp, ie); 
-                n->type_string = (ir ? "void*" : act_t); 
-                return n;
-            }
-            auto v = parse_expression(); consume(TokenType::SEMICOLON, "Missing ';'.");
-            auto n = std::make_shared<AssignmentNode>(std::string{var_name_str}, v, ie); n->type_string = (ir ? act_t + "*" : act_t); n->is_null_safe = !io; return n;
-        }
-        auto e = parse_expression(); match(TokenType::SEMICOLON); return e;
-    }
     std::shared_ptr<ASTNode> parse_primary() {
         Token t = peek();
         std::shared_ptr<ASTNode> node = nullptr;
