@@ -406,10 +406,10 @@ private:
                 int base_stack_offset = stack_frame_table[var_name];
                 int field_displacement = struct_blueprint_table[struct_type][mem_node->field_name];
                 
-                // Absolute structural stack displacement: [rbp - (base_offset - field_displacement)]
                 int absolute_offset = base_stack_offset - field_displacement;
                 
-                // For this milestone step, look up individual field types or default to 32-bit registers
+                // FIXED: Clear out the full 64-bit register frame first to guarantee print safety!
+                out << tabs() << "xor rax, rax\n";
                 out << tabs() << "mov eax, dword ptr [rbp - " << absolute_offset << "] # struct member lookahead\n";
             }
             return;
