@@ -78,7 +78,7 @@ main:
     mov qword ptr [rbp - 13], rax    # Large 8-byte int64 allocation
 
     # --- HARDWARE TURBO SANDBOX: SEQUENTIAL UNROLL PASS START ---
-    # Unroll Step Iteration Track [1]
+    # Unroll Step Iteration Track
     mov dword ptr [rbp - 17], 1
     mov eax, dword ptr [rbp - 5]
     push rax
@@ -111,15 +111,35 @@ main:
     .string "%s\n"
 ```
 
-## Pipeline Automation Deployment
-The repository contains a granular dependency tracker `Makefile` alongside a fast sanity check `build.sh` script. Ensure you are running `g++-14` or newer to support cutting-edge C++23 standard library module structures (`import std;`).
+## Installation and Deployment
 
+Follow these steps to fetch, compile, and run this compiler backend environment on your machine.
+
+### Prerequisites
+* **Operating System**: Linux (`x86_64`) architecture matching the bare-metal register calling layouts.
+* **Host Compiler**: `g++-14` or newer with active standard C++23 module installation configurations (`import std;`).
+* **Build Tools**: Standard development platform utilities (`make`, `coreutils`).
+
+### Setup Instructions
+Clone the repository and pull the experimental sandbox feature branch explicitly:
 ```bash
-# wipe cached artifacts, verify host compilers, build modules, and run the test matrix
+git clone https://github.com/mxreal64/algol126.git
+cd algol126 # or whatever dir u put it in
+
+# if u want experimental
+git checkout experimental
+```
+
+Build the workspace dependency mappings and initialize the compiler binary driver module:
+```bash
 make clean
 make
-./a126c examples/type_spec_check.a68
-./build/type_spec_check
+```
+
+Piping an active source script through your toolchain driver to generate native hardware execution paths:
+```bash
+./a126c examples/full_spec_check.a68
+./build/full_spec_check
 ```
 
 ## notice & licensing
