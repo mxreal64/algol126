@@ -20,7 +20,7 @@ because the front-end token layout maps directly to flat lookup arrays, the enti
 * **compile-time template abstractions**: generic type layout definitions (`template(type element) struct box { ... };`) that dynamically copy and substitute data field alignments on concrete instantiation targets.
 
 ## language syntax reference baseline
-```algol
+```algol126
 begin
     # 1. compile-time generic blueprint #
     template(type element) struct cache_cell {
@@ -54,11 +54,8 @@ end;
 the repository contains a granular dependency tracker `Makefile` alongside a fast sanity check `build.sh` script. ensure you are running `g++-14` or newer to support cutting-edge c++23 standard library module structures (`import std;`).
 
 ```bash
-# grant executable privileges to the script harness
-chmod +x build.sh
-
-# wipe cached artifacts, verify host compilers, build modules, and run the test matrix
-./build.sh
+make clean 
+make
 ```
 
 ## notice & licensing
